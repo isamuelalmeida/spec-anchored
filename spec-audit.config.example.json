@@ -1,0 +1,30 @@
+{
+  "ignore": ["node_modules", ".git", "dist", "build", "coverage", ".opencode", ".claude", ".agents", "archive"],
+  "specs": { "dir": "openspec/specs", "changesDir": "openspec/changes" },
+  "tests": {
+    "include": ["**/*.{test,spec}.{js,ts,mjs,jsx,tsx}"],
+    "exclude": ["node_modules/**", "**/dist/**", "**/build/**", "**/coverage/**"]
+  },
+  "principles": [
+    {
+      "id": "P-SEM-SEGREDO",
+      "type": "no_regex",
+      "glob": "src/**/*.{ts,js}",
+      "pattern": "api[_-]?key\\s*[:=]|password\\s*[:=]\\s*['\"][^'\"]{8,}",
+      "message": "nenhum segredo (API key, senha) pode ser hardcoded no código"
+    },
+    {
+      "id": "P-VALIDA-INPUT",
+      "type": "regex_required",
+      "glob": "src/api/**/*.ts",
+      "pattern": "zod|ajv|validate|parse",
+      "message": "todo endpoint deve validar entrada (schema/parser) antes de processar"
+    },
+    {
+      "id": "P-MIGRACOES",
+      "type": "file_exists",
+      "glob": "db/migrations/**/*.{sql,ts}",
+      "message": "o projeto deve ter camada de migrações de banco"
+    }
+  ]
+}

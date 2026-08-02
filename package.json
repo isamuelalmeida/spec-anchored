@@ -1,0 +1,13 @@
+{
+  "name": "spec-anchored",
+  "version": "1.0.0",
+  "description": "Spec-anchored skill para opencode: OpenSpec como backbone + auditoria mecânica spec↔código (zero dependências).",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/audit.test.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
