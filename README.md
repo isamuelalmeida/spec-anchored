@@ -33,7 +33,7 @@ Esta skill combina as melhores práticas de dois projetos open source (MIT):
 ## Instalação
 
 ```bash
-git clone https://github.com/<seu-usuario>/spec-anchored ~/.config/opencode/skills/spec-anchored
+git clone https://github.com/isamuelalmeida/spec-anchored ~/.config/opencode/skills/spec-anchored
 # ou por symlink, se preferir manter o clone em outro lugar:
 ln -s ~/spec-anchored ~/.config/opencode/skills/spec-anchored
 ```
