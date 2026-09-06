@@ -280,15 +280,33 @@ function main() {
   }
 
   // 3. IDs duplicados
+  // Uma delta reafirma/reflete o requirement na spec main: MODIFIED restaura o
+  // texto completo (formato OpenSpec) e ADDED espelha a main recém-criada pelo
+  // sync (openspec-sync-specs) antes do arquivamento — em ambos os casos o par
+  // delta + spec main é o fluxo esperado, não ambiguidade. Só é ambiguidade
+  // real quando 2+ deltas tocam o mesmo ID, o ID duplica entre specs main ou a
+  // combinação foge do padrão (1 delta + 1 main).
   const seen = new Map();
+  const dupGroups = new Map();
   for (const r of requirements) {
     if (seen.has(r.id)) {
-      findings.push({
-        code: 'ID_DUPLICADO', severity: 'error',
-        file: r.file, line: r.line,
-        message: `ID ${r.id} duplicado (também em ${seen.get(r.id)}) — ambiguidade na rastreabilidade`,
-      });
-    } else seen.set(r.id, r.file);
+      if (!dupGroups.has(r.id)) dupGroups.set(r.id, [seen.get(r.id)]);
+      dupGroups.get(r.id).push(r);
+    } else seen.set(r.id, r);
+  }
+  for (const [id, rs] of dupGroups) {
+    const deltas = rs.filter((r) => r.delta !== null);
+    const mainSpecs = rs.filter((r) => r.delta === null);
+    const legitimateRestatement = rs.length === 2 && deltas.length === 1 && mainSpecs.length === 1;
+    if (!legitimateRestatement) {
+      for (const r of rs) {
+        findings.push({
+          code: 'ID_DUPLICADO', severity: 'error',
+          file: r.file, line: r.line,
+          message: `ID ${id} duplicado (${rs.map((x) => x.file).join(', ')}) — ambiguidade na rastreabilidade`,
+        });
+      }
+    }
   }
 
   // 4. Princípios
