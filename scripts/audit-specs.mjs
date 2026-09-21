@@ -403,14 +403,33 @@ function loadTestAnnotations(files) {
 
 // Heurística anti-ReDoS (melhor esforço — regex JS é síncrona e não pode
 // ser interrompida; patterns sinalizados geram aviso em vez de travar o CI).
+// Só sinaliza aninhamento real de quantificadores (`(a+)+`) ou múltiplos
+// `.*`/repetições abertas DENTRO do mesmo ramo de alternância —
+// `A.*B|C.*D`, `[\s\S]{0,500}` e `[^'"]{8,}` são lineares e NÃO são sinalizados.
+function splitTopAlternation(src) {
+  const branches = [];
+  let depthParen = 0, inClass = false, cur = '';
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (c === '\\') { cur += c + (src[i + 1] ?? ''); i++; continue; }
+    if (c === '[' && !inClass) inClass = true;
+    else if (c === ']' && inClass) inClass = false;
+    else if (!inClass && c === '(') depthParen++;
+    else if (!inClass && c === ')') depthParen = Math.max(0, depthParen - 1);
+    if (c === '|' && !inClass && depthParen === 0) { branches.push(cur); cur = ''; continue; }
+    cur += c;
+  }
+  branches.push(cur);
+  return branches;
+}
+
 function isRiskyPattern(src) {
-  return (
-    /\([^)]*[+*?][^)]*\)[+*?]/.test(src) || // quantificador aninhado: (a+)+
-    /\[[^\]]*\][+*?]\w*[+*?]/.test(src) || // classe quantificada seguida de quantificador
-    /\(\.\*\)/.test(src) ||
-    /\{\d*,\d{3,}\}/.test(src) || // repetição aberta gigante
-    /\[\\s\\S\]\{\d*,\d{3,}\}/.test(src)
-  );
+  for (const branch of splitTopAlternation(src)) {
+    if (/\([^()]*[+*?][^()]*\)[+*?]/.test(branch)) return true; // (a+)+ aninhado
+    const open = (branch.match(/(\.\*|\[\\s\\S\]\*|\[\\S\\s\]\*|\.\+)/g) || []).length;
+    if (open >= 2) return true;
+  }
+  return false;
 }
 
 function checkPrinciples(files, findings) {

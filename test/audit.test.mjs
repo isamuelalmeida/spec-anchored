@@ -262,3 +262,17 @@ test('pattern com risco de ReDoS gera aviso PATTERN_ARRISCADO sem falhar', () =>
   assert.equal(r.code, 0, r.stdout);
   assert.match(r.stdout, /PATTERN_ARRISCADO/);
 });
+
+test('repetição limitada como [\\s\\S]{0,500} não é sinalizada como ReDoS', () => {
+  const root = setupTree({
+    'openspec/specs/auth/spec.md': `### Requirement: Login\nEntra.\n\n#### Scenario: E\n- WHEN e\n- THEN o\n`,
+    'tests/auth.test.ts': `// @spec:login\ntest('login', () => {});`,
+    'infra/docker-compose.e2e.yaml': `services:\n  mock-llm:\n    image: mock\n`,
+    'spec-audit.config.json': JSON.stringify({
+      principles: [{ id: 'P-MOCK', type: 'no_regex', glob: 'infra/docker-compose.e2e.yaml', pattern: 'mock-llm[\\s\\S]{0,500}ports:' }],
+    }),
+  });
+  const r = runAudit(root);
+  assert.equal(r.code, 0, r.stdout);
+  assert.doesNotMatch(r.stdout, /PATTERN_ARRISCADO/);
+});
