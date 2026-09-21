@@ -164,3 +164,101 @@ test('test-command falhando vira erro TESTES_FALHANDO', () => {
   assert.equal(r.code, 1);
   assert.match(r.stdout, /TESTES_FALHANDO/);
 });
+
+test('skip_specs:true dispensa teste sem gerar AC_SEM_TESTE', () => {
+  const root = setupTree({
+    'openspec/specs/auth/spec.md': `### Requirement: Login\nThe system MUST log in.\n#### Scenario: Entra\n- WHEN entra\n- THEN ok\n`,
+    'openspec/changes/tooling/.openspec.yaml': `skip_specs: true\n`,
+    'openspec/changes/tooling/specs/auth/spec.md': `## ADDED Requirements\n\n### Requirement: Lint Interno\nFerramenta interna sem comportamento.\n\n#### Scenario: Roda\n- WHEN roda\n- THEN ok\n`,
+    'tests/auth.test.ts': `// @spec:login\ntest('login', () => {});`,
+  });
+  const r = runAudit(root, ['--json']);
+  assert.equal(r.code, 0, r.stdout);
+  const data = JSON.parse(r.stdout);
+  assert.equal(data.summary.skipped, 1);
+  assert.equal(data.summary.requirements, 1);
+});
+
+test('tag @spec: em teste pulado não conta como prova (exit( não é skip)', () => {
+  const root = setupTree({
+    'openspec/specs/auth/spec.md': `### Requirement: Login\nThe system MUST log in.\n\n#### Scenario: Entra\n- WHEN entra\n- THEN ok\n`,
+    'tests/auth.test.ts': `// @spec:login\ntest.skip('login pulado', () => {});\ncheckHealth(base).catch(() => { console.error('x'); process.exit(1); });`,
+  });
+  const r = runAudit(root);
+  assert.equal(r.code, 1);
+  assert.match(r.stdout, /AC_SEM_TESTE/);
+  assert.match(r.stdout, /TESTE_PULADO/);
+});
+
+test('duplicata case-insensitive vira erro; par 1-delta+1-main é legítimo', () => {
+  const dup = setupTree({
+    'openspec/changes/a/specs/auth/spec.md': `## ADDED Requirements\n\n### Requirement: Late Fees\nCobra multa.\n\n#### Scenario: Cobra\n- WHEN atrasa\n- THEN cobra\n`,
+    'openspec/changes/b/specs/auth/spec.md': `## ADDED Requirements\n\n### Requirement: late fees\nCobra multa.\n\n#### Scenario: Cobra\n- WHEN atrasa\n- THEN cobra\n`,
+    'tests/auth.test.ts': `// @spec:late-fees\ntest('x', () => {});`,
+  });
+  const r1 = runAudit(dup);
+  assert.equal(r1.code, 1);
+  assert.match(r1.stdout, /ID_DUPLICADO/);
+
+  const legit = setupTree({
+    'openspec/specs/auth/spec.md': `### Requirement: Login\nEntra.\n\n#### Scenario: Entra\n- WHEN entra\n- THEN ok\n`,
+    'openspec/changes/login/specs/auth/spec.md': `## MODIFIED Requirements\n\n### Requirement: Login\nEntra com 2FA.\n\n#### Scenario: Entra\n- WHEN entra\n- THEN ok\n`,
+    'tests/auth.test.ts': `// @spec:login\ntest('login', () => {});`,
+  });
+  const r2 = runAudit(legit);
+  assert.equal(r2.code, 0, r2.stdout);
+});
+
+test('RENAMED sem par vira erro; fechamento ### e bullet são tolerados', () => {
+  const bad = setupTree({
+    'openspec/specs/auth/spec.md': `### Requirement: Login\nEntra.\n\n#### Scenario: E\n- WHEN e\n- THEN o\n`,
+    'openspec/changes/rn/specs/auth/spec.md': `## RENAMED Requirements\n\nFROM: Old Name\n`,
+    'tests/auth.test.ts': `// @spec:login\ntest('login', () => {});`,
+  });
+  const r1 = runAudit(bad);
+  assert.equal(r1.code, 1);
+  assert.match(r1.stdout, /RENAMED_INVALIDO/);
+
+  const ok = setupTree({
+    'openspec/specs/auth/spec.md': `### Requirement: Login\nEntra.\n\n#### Scenario: E\n- WHEN e\n- THEN o\n`,
+    'openspec/changes/rn/specs/auth/spec.md': `## REMOVED Requirements\n\n- ### Requirement: Password Auth ###\n(removido)\n`,
+    'tests/auth.test.ts': `// @spec:login\ntest('login', () => {});`,
+  });
+  const r2 = runAudit(ok);
+  assert.equal(r2.code, 0, r2.stdout);
+  assert.doesNotMatch(r2.stdout, /password-auth.*AC_SEM_TESTE/s);
+});
+
+test('requirement fora de seção vira aviso e não exige teste; delta fora de spec.md vira erro', () => {
+  const warn = setupTree({
+    'openspec/specs/auth/spec.md': `### Requirement: Login\nEntra.\n\n#### Scenario: E\n- WHEN e\n- THEN o\n`,
+    'openspec/changes/n/specs/auth/spec.md': `## Notes\n\n### Requirement: Ideia Solta\nSó anotação.\n`,
+    'tests/auth.test.ts': `// @spec:login\ntest('login', () => {});`,
+  });
+  const r1 = runAudit(warn);
+  assert.equal(r1.code, 0, r1.stdout);
+  assert.match(r1.stdout, /DELTA_FORA_DE_SECAO/);
+
+  const badPath = setupTree({
+    'openspec/specs/auth/spec.md': `### Requirement: Login\nEntra.\n\n#### Scenario: E\n- WHEN e\n- THEN o\n`,
+    'openspec/changes/n/specs/notas.md': `## ADDED Requirements\n\n### Requirement: Extra\nCoisa.\n\n#### Scenario: E\n- WHEN e\n- THEN o\n`,
+    'tests/auth.test.ts': `// @spec:login\n// @spec:extra\ntest('login', () => {});`,
+  });
+  const r2 = runAudit(badPath);
+  assert.equal(r2.code, 1);
+  assert.match(r2.stdout, /DELTA_PATH_INVALIDO/);
+});
+
+test('pattern com risco de ReDoS gera aviso PATTERN_ARRISCADO sem falhar', () => {
+  const root = setupTree({
+    'openspec/specs/auth/spec.md': `### Requirement: Login\nEntra.\n\n#### Scenario: E\n- WHEN e\n- THEN o\n`,
+    'tests/auth.test.ts': `// @spec:login\ntest('login', () => {});`,
+    'src/a.ts': `const x = 1;`,
+    'spec-audit.config.json': JSON.stringify({
+      principles: [{ id: 'P-RISCO', type: 'no_regex', glob: 'src/**/*.ts', pattern: '(a+)+$' }],
+    }),
+  });
+  const r = runAudit(root);
+  assert.equal(r.code, 0, r.stdout);
+  assert.match(r.stdout, /PATTERN_ARRISCADO/);
+});

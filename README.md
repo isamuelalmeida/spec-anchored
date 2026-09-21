@@ -61,7 +61,10 @@ node scripts/spec-audit/audit-specs.mjs --test-command "npm run test:ci"
 ```
 
 IDs: `### Requirement: Título` → id = slug (`título`) ou `[AC-001]` explícito
-no título. Testes anotam `@spec:<id>`.
+no título. Testes anotam `@spec:<id>`. Deltas vivem em
+`specs/<capability>/spec.md`. Refator puro/tooling/docs sem comportamento pode
+declarar `skip_specs: true` (`.openspec.yaml`, `change.yaml` ou frontmatter da
+`proposal.md`) — dispensado de teste, contado como `skipped` no resumo.
 
 Princípios verificáveis: `spec-audit.config.json` na raiz (veja
 `spec-audit.config.example.json`). Tipos: `file_exists`, `no_regex`,
@@ -76,6 +79,12 @@ Princípios verificáveis: `spec-audit.config.json` na raiz (veja
 
 Exit codes: `0` ok · `1` erros (AC sem teste, princípio violado, suíte
 falhando) · avisos não bloqueiam (exceto `--strict`).
+
+Códigos novos nesta versão: `TESTE_PULADO` (tag em teste pulado não conta
+como prova), `RENAMED_INVALIDO`, `DELTA_PATH_INVALIDO`,
+`DELTA_FORA_DE_SECAO`, `CENARIO_AUSENTE`, `PATTERN_ARRISCADO`,
+`PRINCIPIO_LENTO`. Duplicatas de ID são case-insensitive com exceção do par
+legítimo 1-delta + 1-main; conteúdo é normalizado para NFC.
 
 ## Desenvolvimento
 

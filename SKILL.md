@@ -41,7 +41,10 @@ formato do OpenSpec).
 1. CLI do OpenSpec instalado: `npm install -g @fission-ai/openspec@latest`.
 2. Projeto inicializado: `openspec init --tools opencode` (cria
    `.opencode/skills/openspec-*` + `.opencode/commands/opsx-*.md` + `openspec/`).
-   Se faltar, faça o init antes de qualquer outra coisa.
+   Se faltar, faça o init antes de qualquer outra coisa. Mantenha o CLI
+   atualizado (`npm install -g @fission-ai/openspec@latest` + `openspec update`;
+   após sessão perdida, `openspec status` imprime o `Next:` com o comando
+   que retoma o change).
 3. (Opcional) `spec-audit.config.json` na raiz com os princípios do projeto —
    veja `spec-audit.config.example.json` nesta skill.
 
@@ -49,14 +52,17 @@ formato do OpenSpec).
 
 Siga o ciclo do OpenSpec e rode a auditoria em cada parada:
 
-1. `/opsx:explore` — pensar antes de especificar (opcional).
+1. `/opsx:explore` — pensar antes de especificar (opcional). Ao concluir,
+   nomear `/opsx:propose` como próximo passo e nunca implementar direto.
 2. `/opsx:propose <nome>` — cria `openspec/changes/<nome>/` com proposal,
    design, tasks e specs delta (requisitos `### Requirement:` + cenários
-   GIVEN/WHEN/THEN).
+   GIVEN/WHEN/THEN). Refator puro/tooling/docs sem comportamento pode
+   declarar `skip_specs: true` (ver seção própria).
 3. **Convenção de IDs**: cada `### Requirement: Título` vira um critério de
    aceite. O ID é o slug do título (`two-factor-authentication`) ou o marcador
    explícito `[AC-001]` no próprio título. Recomendo marcador explícito quando
-   o título puder mudar.
+   o título puder mudar. Deltas vivem em `specs/<capability>/spec.md` —
+   o archive ignora qualquer outro path.
 4. **Definição de pronto executável**: cada critério de aceite DEVE ter um
    teste anotado com a tag `@spec:<id>` (em comentário do arquivo de teste ou
    no nome). Sem teste anotado, a feature não está pronta.
@@ -90,10 +96,46 @@ bloqueiam (exceto com `--strict`). Códigos e o que fazer:
 |---|---|---|---|
 | `AC_SEM_TESTE` | erro | critério de aceite sem teste `@spec:<id>` | criar teste anotado |
 | `TESTE_ORFAO` | aviso | tag `@spec:` sem critério ativo | remover tag ou restaurar requirement |
-| `ID_DUPLICADO` | erro | mesmo ID em dois requirements | renomear um dos IDs |
+| `TESTE_PULADO` | aviso | tag `@spec:` dentro de teste pulado (`skip`/`xit`) — não conta como prova | reativar o teste ou mover a tag |
+| `ID_DUPLICADO` | erro | mesmo ID em dois requirements (comparação case-insensitive) | renomear um dos IDs |
+| `RENAMED_INVALIDO` | erro | `FROM:` sem `TO:` (ou vice-versa) em seção `RENAMED` | parear cada `FROM:` com seu `TO:` |
+| `DELTA_PATH_INVALIDO` | erro | delta fora de `specs/<capability>/spec.md` (archive nunca lê) | mover para o `spec.md` da capability |
 | `PRINCIPIO_VIOLADO` | erro | princípio do config não vale no código | corrigir código ou ajustar princípio |
 | `GLOB_SEM_ARQUIVOS` | aviso | glob do princípio não casa nada | corrigir typo no glob |
+| `PATTERN_ARRISCADO` | aviso | pattern com risco de ReDoS (quantificador aninhado) | simplificar/ancorar o pattern |
+| `PRINCIPIO_LENTO` | aviso | verificação do princípio passou de 1s num arquivo | ancorar pattern ou restringir glob |
+| `DELTA_FORA_DE_SECAO` | aviso | requirement em change fora de `ADDED/MODIFIED/...` (ignorado pelo archive) | mover para a seção delta correta |
+| `CENARIO_AUSENTE` | aviso | critério ativo sem cenário com corpo | escrever ao menos um cenário GIVEN/WHEN/THEN |
 | `TESTES_FALHANDO` | erro | suíte (--test-command) falhou | corrigir testes |
+
+Notas de robustez (portes OpenSpec 1.13.x + anti-bypass):
+
+- **IDs case-insensitive, exceção preservada**: `Late Fees` vs `late fees`
+  contam como duplicata — exceto o par legítimo 1-delta + 1-main
+  (reafirmação `MODIFIED`/`ADDED` do sync; cf. lição `2026-09-06`).
+- **Formas toleradas**: fechamento `### Requirement: X ###`, bullets
+  `-`/`*`/`+` em `REMOVED`/`RENAMED`, seções `RENAMED` com pares `FROM:/TO:`.
+- **Teste pulado não é prova**: `@spec:` em `test.skip`, `describe.skip`,
+  `it.skip`, `xit`, `xdescribe` (com word-boundary — `exit(` não é skip)
+  é ignorado e sinalizado como `TESTE_PULADO`.
+- **NFC**: conteúdo normalizado antes de parse/match (títulos acentuados).
+- **ReDoS**: patterns arriscados geram `PATTERN_ARRISCADO` em vez de
+  travar o CI; verificações lentas geram `PRINCIPIO_LENTO`.
+
+## Changes sem comportamento (`skip_specs`)
+
+Trabalho sem mudança de comportamento (refator puro, tooling, docs) pode
+declarar `skip_specs: true` — na ordem: `<change>/.openspec.yaml`,
+`<change>/change.yaml` ou frontmatter de `<change>/proposal.md`:
+
+```yaml
+skip_specs: true
+```
+
+Requirements do change são dispensados de teste (contados como
+`skipped` no resumo/`--json`) e seus IDs continuam válidos contra
+`TESTE_ORFAO`. Default: exigir teste. Não use para esconder comportamento
+novo — o audit confere spec↔teste, não spec↔código.
 
 ## Princípios verificáveis (constituição)
 
