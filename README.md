@@ -70,6 +70,13 @@ Princípios verificáveis: `spec-audit.config.json` na raiz (veja
 `spec-audit.config.example.json`). Tipos: `file_exists`, `no_regex`,
 `regex_required`.
 
+Piso do projeto: `CONSTRAINTS.example.md` → `CONSTRAINTS.md` na raiz +
+`scripts/floor-guard.mjs` (guarda diff-scoped: supressões, stubs, skips,
+testes deletados, asserções removidas, regras/exceções e thresholds;
+remoções aprovadas via `scripts/test-removal-approvals.json` com
+base+hashes). Limites honestos: o audit prova rastreabilidade
+spec↔teste, não fidelidade semântica (ver SKILL.md).
+
 ## CI
 
 ```yaml
@@ -89,8 +96,9 @@ legítimo 1-delta + 1-main; conteúdo é normalizado para NFC.
 ## Desenvolvimento
 
 ```bash
-npm test        # node --test (zero dependências)
+npm test        # node --test (zero dependências): audit + floor-guard
 node scripts/audit-specs.mjs --root <projeto> --json
+node scripts/floor-guard.mjs --base origin/main
 ```
 
 ## Licença

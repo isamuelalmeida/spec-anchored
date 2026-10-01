@@ -123,7 +123,6 @@ Notas de robustez (portes OpenSpec 1.13.x + anti-bypass):
   travar o CI; verificações lentas geram `PRINCIPIO_LENTO`.
 
 ## Changes sem comportamento (`skip_specs`)
-
 Trabalho sem mudança de comportamento (refator puro, tooling, docs) pode
 declarar `skip_specs: true` — na ordem: `<change>/.openspec.yaml`,
 `<change>/change.yaml` ou frontmatter de `<change>/proposal.md`:
@@ -135,7 +134,53 @@ skip_specs: true
 Requirements do change são dispensados de teste (contados como
 `skipped` no resumo/`--json`) e seus IDs continuam válidos contra
 `TESTE_ORFAO`. Default: exigir teste. Não use para esconder comportamento
-novo — o audit confere spec↔teste, não spec↔código.
+novo — o audit confere spec↔teste, não spec↔código (ver "Limites do `@spec`"
+abaixo).
+
+## Limites do `@spec` (o que a auditoria NÃO pega)
+
+O motor prova **rastreabilidade** (todo critério tem teste, nenhum teste é
+órfão) — não **fidelidade semântica**. Casos reais que passam verde com a
+spec mentindo:
+
+- **Implementação diverge do requisito**: a spec exige `argon2id`, o código
+  usa outro KDF; o teste anotado exercita o fluxo e passa. Tag não detecta
+  troca de algoritmo, constante ou condição de contorno — só que *algo* foi
+  exercitado. Divergência semântica exige review humano ou teste de
+  contrato que asserte o comportamento exato (não só o caminho).
+- **Teste espelha o código em vez do requisito**: asserção copiada da
+  implementação passa junto quando ambos estão errados na mesma direção.
+- **Requisito vago**: critério sem cenário observável (`CENARIO_AUSENTE`)
+  não tem como falhar — escrever GIVEN/WHEN/THEN primeiro.
+
+Regra prática: desconfie de teste que só pode falhar se o código for
+apagado. A cobertura que importa é a que falha quando o *comportamento*
+muda.
+
+## Piso do projeto (`CONSTRAINTS.md` + `floor-guard`)
+
+Princípios lentos de revisar (supressões, stubs, testes pulados, segredos,
+enfraquecimento de regra) viram piso em `CONSTRAINTS.md` na raiz — só
+proibições e exceções rastreadas, nunca metas. O guarda
+(`scripts/floor-guard.mjs`, Node puro, zero deps) fiscaliza o **diff**:
+
+```bash
+cp <base-da-skill>/scripts/floor-guard.mjs scripts/
+cp <base-da-skill>/CONSTRAINTS.example.md CONSTRAINTS.md  # reescreva para sua stack
+node scripts/floor-guard.mjs --base origin/main   # 0 clean · 1 violação · 2 sem base
+```
+
+O que ele barra: supressão nova (`@ts-ignore`, `eslint-disable`, …),
+stub (`Not implemented`, `TODO`, `catch {}`), skip/fixme novo, arquivo de
+teste deletado, asserção removida, exceção nova não rastreada, regra
+removida e threshold afrouxado (direção lida nas palavras: `at least` =
+mínimo, `at most` = máximo — número sem direção é sempre reportado).
+Remoção de teste aprovada passa só via `scripts/test-removal-approvals.json`
+(base exata + SHA-256 antes/depois + motivo + cobertura remanescente);
+qualquer edição posterior invalida a aprovação. Rode no CI junto da
+auditoria: `check:floor` antes de `audit:specs -- --strict`.
+
+## CI (endurecido)
 
 ## Princípios verificáveis (constituição)
 
@@ -161,12 +206,28 @@ Os exemplos são genéricos de propósito — troque pelos princípios do SEU
 projeto. Regra de ouro: princípio só entra se a checagem for objetiva (glob +
 regex ou existência). Se depender de interpretação, é conversa, não princípio.
 
-## CI
+## CI (endurecido)
 
 ```yaml
 - name: auditoria spec
   run: node scripts/spec-audit/audit-specs.mjs --test-command "npm run test:ci"
 ```
+
+Segredos e supply-chain não são cobertos pela auditoria — adicione no
+mesmo job:
+
+- **gitleaks** (`gitleaks/gitleaks-action`, com SHA pinado): varre a árvore
+  e o histórico com `--redact` (a action já passa; segredo nunca cai em
+  log). Exceções só por fingerprint em `.gitleaksignore`, uma por linha,
+  cada uma inspecionada à mão — nunca por path inteiro.
+- **zizmor** (`zizmorcore/zizmor-action`, SHA pinado + `version` fixada):
+  audita os próprios workflows. Escopo pode ser um arquivo
+  (`inputs: .github/workflows/ci.yml`) com o motivo documentado quando o
+  resto é legado.
+- **Higiene mínima do workflow**: todo `uses:` pinado por SHA com a tag em
+  comentário, `permissions:` mínimas (`contents: read` no topo, elevar só
+  no job que precisa), `persist-credentials: false` onde não há push, sem
+  `npm install -g` (dependência de CI vira devDep travada no lockfile).
 
 ## Regras de ouro
 
