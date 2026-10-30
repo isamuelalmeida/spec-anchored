@@ -1,8 +1,8 @@
 ---
 name: spec-anchored
 description: >-
-  Fluxo spec-anchored para opencode: usa OpenSpec como backbone (changes,
-  propose/apply/archive via /opsx-*) e mantém a especificação verdadeira por
+  Fluxo spec-anchored para opencode e Claude Code: usa OpenSpec como backbone
+  (changes, propose/apply/archive via /opsx-*) e mantém a especificação verdadeira por
   auditoria MECÂNICA contra código e testes — todo critério de aceite precisa
   de teste anotado @spec:<id>, testes órfãos são sinalizados, e princípios do
   projeto são verificados por glob/regex no CI. Use quando o usuário disser
@@ -28,8 +28,8 @@ agente.
 
 Baseada nas melhores práticas de dois projetos open source (MIT): o
 [OpenSpec](https://github.com/Fission-AI/OpenSpec) (formato de specs, deltas,
-workflow de changes e integração com opencode — usamos o CLI e os `/opsx-*`
-que ele instala) e o
+workflow de changes e integração com opencode e Claude Code — usamos o CLI e
+os `/opsx-*` que ele instala) e o
 [onp-spec-driven](https://github.com/onovoprogramador/onp-spec-driven)
 (inspiração para o conceito spec-anchored: auditoria mecânica de
 rastreabilidade spec↔código, códigos como `AC_SEM_TESTE`/`TESTE_ORFAO` e
@@ -39,18 +39,42 @@ formato do OpenSpec).
 ## Pré-requisitos
 
 1. CLI do OpenSpec instalado: `npm install -g @fission-ai/openspec@latest`.
-2. Projeto inicializado: `openspec init --tools opencode` (cria
-   `.opencode/skills/openspec-*` + `.opencode/commands/opsx-*.md` + `openspec/`).
-   Se faltar, faça o init antes de qualquer outra coisa. Mantenha o CLI
+2. Projeto inicializado: `openspec init --tools opencode,claude` (cria
+   `.opencode/skills/openspec-*` + `.opencode/commands/opsx-*.md`,
+   `.claude/skills/openspec-*` + `.claude/commands/opsx/<id>.md` e `openspec/`).
+   Rode com o par de tools para o projeto funcionar nos dois agentes. Se
+   faltar, faça o init antes de qualquer outra coisa. Mantenha o CLI
    atualizado (`npm install -g @fission-ai/openspec@latest` + `openspec update`;
    após sessão perdida, `openspec status` imprime o `Next:` com o comando
    que retoma o change).
 3. (Opcional) `spec-audit.config.json` na raiz com os princípios do projeto —
    veja `spec-audit.config.example.json` nesta skill.
 
+### Onde esta skill vive (por agente)
+
+O motor (`scripts/`) é o mesmo em qualquer agente; só muda o caminho onde a
+skill é instalada:
+
+| Agente | Skill pessoal | Skill por projeto |
+|---|---|---|
+| opencode | `~/.config/opencode/skills/spec-anchored/` | `.opencode/skills/spec-anchored/` |
+| Claude Code | `~/.claude/skills/spec-anchored/` | `.claude/skills/spec-anchored/` |
+
+Nos dois, um symlink para o mesmo clone serve para os dois agentes — o
+`<base-da-skill>` nos comandos abaixo é o diretório real do clone. O
+formato `SKILL.md` é o padrão aberto Agent Skills, idêntico nos dois.
+
 ## Workflow diário
 
-Siga o ciclo do OpenSpec e rode a auditoria em cada parada:
+Siga o ciclo do OpenSpec e rode a auditoria em cada parada. O separador do
+comando depende do agente — mesmo workflow, duas grafias:
+
+| Agente | Grafia | Arquivo |
+|---|---|---|
+| opencode | `/opsx-propose`, `/opsx-apply`… | `.opencode/commands/opsx-<id>.md` |
+| Claude Code | `/opsx:propose`, `/opsx:apply`… | `.claude/commands/opsx/<id>.md` |
+
+Nas listas abaixo uso a grafia do Claude Code; no opencode troque `:` por `-`.
 
 1. `/opsx:explore` — pensar antes de especificar (opcional). Ao concluir,
    nomear `/opsx:propose` como próximo passo e nunca implementar direto.

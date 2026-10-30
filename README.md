@@ -1,10 +1,10 @@
 # spec-anchored
 
-Skill para **opencode** que une o que há de melhor em spec-driven development:
+Skill para **opencode** e **Claude Code** que une o que há de melhor em spec-driven development:
 
 - **Backbone maduro**: [OpenSpec](https://openspec.dev) (63k+ ⭐, YC-backed) com
-  integração oficial ao opencode (`openspec init --tools opencode` instala
-  skills + comandos `/opsx-*` em `.opencode/`).
+  integração oficial aos dois agentes (`openspec init --tools opencode,claude`
+  instala skills + comandos `/opsx-*` em `.opencode/` e `.claude/`).
 - **Diferencial de verificação**: auditoria **mecânica** spec↔código (o que
   ferramentas spec-first não têm) — todo critério de aceite exige teste
   anotado `@spec:<id>`, testes órfãos são sinalizados, e princípios do projeto
@@ -32,25 +32,32 @@ Esta skill combina as melhores práticas de dois projetos open source (MIT):
 
 ## Instalação
 
+Um clone, instalado nos dois agentes por symlink:
+
 ```bash
-git clone https://github.com/isamuelalmeida/spec-anchored ~/.config/opencode/skills/spec-anchored
-# ou por symlink, se preferir manter o clone em outro lugar:
+git clone https://github.com/isamuelalmeida/spec-anchored ~/spec-anchored
+
+# opencode
 ln -s ~/spec-anchored ~/.config/opencode/skills/spec-anchored
+# Claude Code
+ln -s ~/spec-anchored ~/.claude/skills/spec-anchored
 ```
 
-Também funciona por projeto: `.opencode/skills/spec-anchored/`.
+Também funciona por projeto: `.opencode/skills/spec-anchored/` (opencode) e
+`.claude/skills/spec-anchored/` (Claude Code).
 
-Reinicie o opencode. No projeto-alvo:
+Reinicie o opencode e o Claude Code. No projeto-alvo:
 
 ```bash
 npm install -g @fission-ai/openspec@latest
-openspec init --tools opencode   # cria .opencode/skills/openspec-* + comandos /opsx-*
-cp ~/.config/opencode/skills/spec-anchored/scripts/audit-specs.mjs scripts/spec-audit/  # para uso no CI
+openspec init --tools opencode,claude   # cria skills + comandos /opsx-* nos dois
+cp ~/spec-anchored/scripts/audit-specs.mjs scripts/spec-audit/  # para uso no CI
 ```
 
 ## Uso
 
-No chat do opencode:
+No chat do opencode ou do Claude Code (no opencode o separador é `-`, ex.
+`/opsx-propose`; no Claude Code é `:`, ex. `/opsx:propose`):
 
 ```
 /opsx:propose minha-feature      # spec (requirements + cenários GIVEN/WHEN/THEN)
